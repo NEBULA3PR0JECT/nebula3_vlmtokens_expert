@@ -1,0 +1,37 @@
+name: experts2
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - pip
+  - json5
+  - jupyter_client
+  - jupyter_core
+  - jupyter_server
+  - jupyterlab
+  - jupyterlab_pygments
+  - jupyterlab_server
+  - jupyterlab_widgets
+  - notebook
+  - pip:
+    - gitpython==3.1.26
+    - ipykernel
+    - ipython
+    - numpy
+    - pymilvus==1.1.1
+    - python-arango==7.2.0
+    - opencv-python
+    - numpy
+    - scipy
+    - flask
+    - gevent
+    - gunicorn
+    - ftfy
+    - regex
+    - tqdm
+    - uvicorn
+    - fastapi
+    - python-dotenv
+    - boto3
+    - git+https://github.com/openai/CLIP.git
+prefix: /opt/conda

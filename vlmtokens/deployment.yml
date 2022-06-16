@@ -1,0 +1,8 @@
+image: aharonamir/nebula3_experts:base
+port: 80
+env:
+  - name: ENV
+    value: VAR
+resources:
+  replicas: 1
+  instanceType: C4
