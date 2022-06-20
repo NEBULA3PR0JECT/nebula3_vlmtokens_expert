@@ -1,0 +1,3 @@
+[submodule "nebula3_pipeline"]
+	path = nebula3_pipeline
+	url = https://github.com/NEBULA3PR0JECT/nebula3_pipeline.git
