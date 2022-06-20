@@ -65,20 +65,25 @@ def get_prefix_prompt_functions(version):
         # scene_prompt = lambda x: f'An image of {x}'
         # verb_prompt = lambda x: f'An image of {x}'
         # object_prompt = lambda x: f'A picture of {x}'
-        # attribute_prompt = lambda x: f'A picture of {x}'
-        # scene_prompt = lambda x: f'A picture of {x}'
-        # verb_prompt = lambda x: f'A picture of {x}'
-        object_prompt = lambda x: f'A photo of {x}'
         attribute_prompt = lambda x: f'A photo of {x}'
-        persons_prompt = lambda x: f'A photo of {x}'
         scene_prompt = lambda x: f'A photo of {x}'
         verb_prompt = lambda x: f'A photo of {x}'
+        object_prompt = lambda x: f'A photo of {x}'
+        vg_attribute_prompt = lambda x: f'A photo of something or somebody {x}'
+        persons_prompt = lambda x: f'A photo of {x}'
+        scene_prompt = lambda x: f'A photo of {x}'
+        vg_verb_prompt = lambda x: f'A photo of something capable of {x}'
+        indoor_prompt = lambda x: f'A photo of {x}'
     return {
         'objects':object_prompt,
+        'vg_objects':object_prompt,
         'attributes':attribute_prompt,
+        'vg_attributes': vg_attribute_prompt,
         'scenes':scene_prompt,
         'persons': persons_prompt,
-        'verbs':verb_prompt
+        'verbs':verb_prompt,
+        'vg_verbs': vg_verb_prompt
+        #'indoors': indoor_prompt
     }
 
 ### embedding functions ### 
@@ -368,26 +373,30 @@ def main(args, config):
     print('prompts:', prompt_functions)
 
     ''' load ontology '''
-    if config['ontology'] == 'vg':
-        print('using openimage objects and vg srl selected events')
-        # object_json_path = f'shared_datasets/OpenImages/openimage_classes_600.json'
-        object_json_path = f'visual_token_ontology/vg/openimage_classes_all_cleaned_fictional_characters.json'
-        attribute_json_path = f'visual_token_ontology/vg/vg_original_attributes_synsets_keys_cleaned_remove_similar0.9.json'
-        scene_json_path = f'visual_token_ontology/vg/place365_ontology.json'
-        persons_json_path = f'visual_token_ontology/vg/persons_ontology.json'
-        verb_json_path = f'visual_token_ontology/vg/vg_srl_selected_object_synsets_keys_remove_similar0.9.json'
-    elif config['ontology'] == 'vg_tencent':
-        print('using tencent-ml-image objects and vg srl selected events')
-        object_json_path = f'visual_token_ontology/vg_tencent/tencent_ml_images_objects.json'
-        attribute_json_path = f'visual_token_ontology/vg_tencent/vg_original_attributes_synsets_keys_cleaned_remove_similar0.9.json'
-        scene_json_path = f'visual_token_ontology/vg/place365_ontology.json'
-        verb_json_path = f'visual_token_ontology/vg_tencent/vg_srl_selected_object_synsets_keys_remove_similar0.9.json'
+    
+    print('using openimage objects and vg srl selected events')
+    # object_json_path = f'shared_datasets/OpenImages/openimage_classes_600.json'
+    object_json_path = f'visual_token_ontology/vg/openimage_classes_all_cleaned_fictional_characters.json'
+    vg_object_json_path = f'visual_token_ontology/vg/objects_sorted_all.json'
+    attribute_json_path = f'visual_token_ontology/vg/vg_original_attributes_synsets_keys_cleaned_remove_similar0.9.json'
+    vg_attribute_json_path = f'visual_token_ontology/vg/attr_sorted_all.json'
+
+    scene_json_path = f'visual_token_ontology/vg/place365_ontology.json'
+    persons_json_path = f'visual_token_ontology/vg/persons_ontology.json'
+    verb_json_path = f'visual_token_ontology/vg/vg_srl_selected_object_synsets_keys_remove_similar0.9.json'
+    vg_verb_json_path = f'visual_token_ontology/vg/capable_of_sorted_all.json'
+    indoor_json_path = f'visual_token_ontology/vg/indoor_ontology.json'
 
     object_texts = load_json(object_json_path)
+    vg_object_texts = load_json(vg_object_json_path)
     attribute_texts = load_json(attribute_json_path)
+    vg_attribute_texts = load_json(vg_attribute_json_path)
     scene_texts = load_json(scene_json_path)
     persons_texts = load_json(persons_json_path)
     verb_texts = load_json(verb_json_path)
+    vg_verb_texts = load_json(vg_verb_json_path)
+    #indoor_texts = load_json(indoor_json_path)
+
     if isinstance(verb_texts,dict):
         verb_texts = list(verb_texts.keys())
     for key in attribute_texts: 
@@ -405,10 +414,14 @@ def main(args, config):
     print('num of verbs:', len(verb_texts))
     visual_token_texts = {
         'objects':object_texts,
+        'vg_objects':vg_object_texts,
         'attributes':attribute_texts,
+        'vg_attributes':vg_attribute_texts,
         'scenes':scene_texts,
         'persons':persons_texts,
-        'verbs':verb_texts
+        'verbs':verb_texts,
+        'vg_verbs':vg_verb_texts
+        #'indoors': indoor_texts
     }
     print('objects examples:', visual_token_texts['objects'][:5])
     # print('attributes examples:',visual_token_texts['attributes'][:5])

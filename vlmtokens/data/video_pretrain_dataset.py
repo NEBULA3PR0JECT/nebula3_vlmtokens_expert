@@ -18,8 +18,8 @@ import decord
 from decord import VideoReader
 
 from torchvision import transforms
-from nebula3_pipeline.nebula3_database.config import NEBULA_CONF
-from nebula3_pipeline.nebula3_database.movie_db import MOVIE_DB
+from nebula3_database.config import NEBULA_CONF
+from nebula3_database.movie_db import MOVIE_DB
 
 # from transformers import CLIPProcessor, CLIPVisionModel, CLIPTokenizer, CLIPTextModel, CLIPModel, CLIPFeatureExtractor
 # from sklearn.cluster import KMeans
@@ -416,33 +416,33 @@ class visual_tokenization_dataset(Dataset):
         skipped_count = 0
         for i in range(len(ann_jsons)):
             #Insert database related code here
-            ann = json.load(open(ann_jsons[i]))
+            #ann = json.load(open(ann_jsons[i]))
             video_dir = video_roots[i]
             video_fmt = video_formats[i]
-            if isinstance(ann, list):
-                for obj in ann:
-                    video_id = obj['video_id']
-                    video_path = os.path.join(video_dir,f'{video_id}.{video_fmt}')
-                    if not os.path.exists(video_path):
-                        print(f'ERROR: video file not found, skipped:{video_path}')
-                        skipped_count += 1
-                        continue
-                    # assume a list of text
-                    if video_id not in self.annotation:
-                        self.annotation[video_id] = {'video': video_path, 'caption':[]}
-                    assert isinstance(obj['texts'],list)
-                    self.annotation[video_id]['caption'] += obj['texts']
+            #if isinstance(ann, list):
+                #for obj in ann:
+            video_id = "video6250" #obj['video_id']
+            video_path = os.path.join(video_dir,f'{video_id}.{video_fmt}')
+            if not os.path.exists(video_path):
+                print(f'ERROR: video file not found, skipped:{video_path}')
+                skipped_count += 1
+                continue
+            # assume a list of text
+            if video_id not in self.annotation:
+                self.annotation[video_id] = {'video': video_path, 'caption':[]}
+            #assert isinstance(obj['texts'],list)
+            self.annotation[video_id]['caption'] = "demi caption" #obj['texts']
                     
-            elif isinstance(ann, dict):
-                # assume keys are video ids
-                for video_id, texts in ann.items():
-                    video_path = os.path.join(video_dir,f'{video_id}.{video_fmt}')
-                    if not os.path.exists(video_path):
-                        print(f'ERROR: video file not found, skipped:{video_path}')
-                        skipped_count += 1
-                        continue
-                    assert isinstance(texts,list)
-                    self.annotation[video_id] = {'video': video_path, 'caption':texts}
+            # elif isinstance(ann, dict):
+            #     # assume keys are video ids
+            #     for video_id, texts in ann.items():
+            #         video_path = os.path.join(video_dir,f'{video_id}.{video_fmt}')
+            #         if not os.path.exists(video_path):
+            #             print(f'ERROR: video file not found, skipped:{video_path}')
+            #             skipped_count += 1
+            #             continue
+            #         assert isinstance(texts,list)
+            #         self.annotation[video_id] = {'video': video_path, 'caption':texts}
         
         self.annotation = [value for key,value in self.annotation.items()]
         print('num of video skipped:', skipped_count )
