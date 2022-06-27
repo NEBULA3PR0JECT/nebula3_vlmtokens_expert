@@ -41,46 +41,40 @@ class visual_genome_dataset(Dataset):
             end_time=None, 
             fps=-1
         '''
-        ids = vg.get_all_image_data()
-        print ("We got an image with id: ",ids)
         self.config = config
 
-        ann_jsons = config['train_ann_jsons'] # contains videoids and its corresponding text
-        video_roots = config['video_roots']
-        video_formats = config['video_formats']
+        ann_jsons = config['vg_objects'] # contains videoids and its corresponding text
+        image_roots = config['image_roots']
+        image_formats = config['image_formats']
 
         if isinstance(ann_jsons,str):
             ann_jsons = [ann_jsons]
-            video_roots = [video_roots]
-            video_formats = [video_formats]
-    
-        if ann_jsons == 'database':
-            self.movie_db = MOVIE_DB()
-            self.db = self.movie_db.db
+            image_roots = [image_roots]
+            image_formats = [image_formats]
              
-        assert len(ann_jsons) == len(video_roots) == len(video_formats)
+        assert len(ann_jsons) == len(image_roots) == len(image_formats)
         
         # load annotation
         self.annotation = {}
         skipped_count = 0
         for i in range(len(ann_jsons)):
             #Insert database related code here
-            #ann = json.load(open(ann_jsons[i]))
-            video_dir = video_roots[i]
-            video_fmt = video_formats[i]
-            #if isinstance(ann, list):
-                #for obj in ann:
-            video_id = "video6250" #obj['video_id']
-            video_path = os.path.join(video_dir,f'{video_id}.{video_fmt}')
-            if not os.path.exists(video_path):
-                print(f'ERROR: video file not found, skipped:{video_path}')
-                skipped_count += 1
-                continue
-            # assume a list of text
-            if video_id not in self.annotation:
-                self.annotation[video_id] = {'video': video_path, 'caption':[]}
-            #assert isinstance(obj['texts'],list)
-            self.annotation[video_id]['caption'] = "demi caption" #obj['texts']
+            ann = json.load(open(ann_jsons[i]))
+            image_dir = image_roots[i]
+            image_fmt = image_formats[i]
+            if isinstance(ann, list):
+                for obj in ann:
+                    image_id = obj['image_id']
+                    image_path = os.path.join(image_dir,f'{image_id}.{image_fmt}')
+                    if not os.path.exists(image_path):
+                        #print(f'ERROR: image file not found, skipped:{image_path}')
+                        skipped_count += 1
+                        continue
+                    # assume a list of text
+                    if image_id not in self.annotation:
+                        self.annotation[image_id] = {'image': image_path, 'caption':[]}
+                    #assert isinstance(obj['texts'],list)
+                    self.annotation[image_id]['objects'] = obj['objects']
                     
             # elif isinstance(ann, dict):
             #     # assume keys are video ids
@@ -94,12 +88,12 @@ class visual_genome_dataset(Dataset):
             #         self.annotation[video_id] = {'video': video_path, 'caption':texts}
         
         self.annotation = [value for key,value in self.annotation.items()]
-        print('num of video skipped:', skipped_count )
-        print('num of video considering:', len(self.annotation))
+        print('num of images skipped:', skipped_count )
+        print('num of images considering:', len(self.annotation))
 
         self.transform = transform
         # add ToPILImage: to let the extracted frames from decord be able to use the training transform 
-        self.transform.transforms.insert(0, transforms.ToPILImage())
+        #self.transform.transforms.insert(0, transforms.ToPILImage())
 
         self.max_words = max_words
 
@@ -107,84 +101,90 @@ class visual_genome_dataset(Dataset):
         return len(self.annotation)
     
     def __getitem__(self, index):    
-        
+            
         ann = self.annotation[index]
+        #print(ann)
+        print(ann['image'])
+        image_path = ann['image']        
+        image = Image.open(image_path).convert('RGB')   
+        #image = self.transform(image)
+        names = []
+        croped_images = []
+        for visual_objects in ann['objects']:
+            h = visual_objects['h']
+            w = visual_objects['w']
+            y = visual_objects['y']
+            x = visual_objects['x']
+            x,y,w,h = self.bbox_xywh_to_xyxy((x,y,w,h))
+           
+            
+            crop_image = image.crop((x,y,w,h))
+            width, height = crop_image.size
+            if width > 30 and height > 30:
+                #print(width, height)
+                image.save(str(index) + ".jpg")
+                croped_images.append(image)
+                #crop_image.save(visual_objects['names'][0] + "_" + str(index) + ".jpg")
+                croped_images.append(crop_image)
+                names.append(visual_objects['names'])
+        processed_frms = [self.transform(frm) for frm in croped_images]
 
-        video_path = ann["video"]
-        caption = ann["caption"]
+
+        return processed_frms, names
+    
+    def bbox_xywh_to_xyxy(self, xywh):
+        """Convert bounding boxes from format (xmin, ymin, w, h) to (xmin, ymin, xmax, ymax)
+
+        Parameters
+        ----------
+        xywh : list, tuple or numpy.ndarray
+            The bbox in format (x, y, w, h).
+            If numpy.ndarray is provided, we expect multiple bounding boxes with
+            shape `(N, 4)`.
+
+        Returns
+        -------
+        tuple or numpy.ndarray
+            The converted bboxes in format (xmin, ymin, xmax, ymax).
+            If input is numpy.ndarray, return is numpy.ndarray correspondingly.
+
+        """
+        if isinstance(xywh, (tuple, list)):
+            if not len(xywh) == 4:
+                raise IndexError(
+                    "Bounding boxes must have 4 elements, given {}".format(len(xywh)))
+            w, h = np.maximum(xywh[2] - 1, 0), np.maximum(xywh[3] - 1, 0)
+            return xywh[0], xywh[1], xywh[0] + w, xywh[1] + h
+        elif isinstance(xywh, np.ndarray):
+            if not xywh.size % 4 == 0:
+                raise IndexError(
+                    "Bounding boxes must have n * 4 elements, given {}".format(xywh.shape))
+            xyxy = np.hstack((xywh[:, :2], xywh[:, :2] + np.maximum(0, xywh[:, 2:4] - 1)))
+            return xyxy
+        else:
+            raise TypeError(
+                'Expect input xywh a list, tuple or numpy.ndarray, given {}'.format(type(xywh))) 
         
-        # try loading video
-        for _ in range(3):
-            raw_sample_frms = self._load_video_from_path_decord(video_path)
-            if raw_sample_frms is not None:
-                break
-        # return None if cannot load
-        if raw_sample_frms is None:
-            return None, None
-        processed_frms = [self.transform(frm) for frm in raw_sample_frms]
-        if not isinstance(processed_frms[0],Image.Image):
-            processed_frms = torch.stack(processed_frms) # [num_frm, c, h, w]
+        # ann = self.annotation[index]
+
+        # image_path = ann["video"]
+        # caption = ann["caption"]
         
-        if 'timesformer' in self.config["vit"]:
-            processed_frms = processed_frms.permute(1,0,2,3)
+        # # try loading video
+        # for _ in range(3):
+        #     raw_sample_frms = self._load_vg_image_from_path_decord(image_path)
+        #     if raw_sample_frms is not None:
+        #         break
+        # # return None if cannot load
+        # if raw_sample_frms is None:
+        #     return None, None
+        # processed_frms = [self.transform(frm) for frm in raw_sample_frms]
+        # if not isinstance(processed_frms[0],Image.Image):
+        #     processed_frms = torch.stack(processed_frms) # [num_frm, c, h, w]
         
-        return processed_frms, caption
+        # if 'timesformer' in self.config["vit"]:
+        #     processed_frms = processed_frms.permute(1,0,2,3)
+        
+        # return processed_frms, caption
 
-    def _load_video_from_path_decord(self, video_path):
-        frm_sampling_strategy=self.config['frm_sampling_strategy']
-        num_frm=self.config['num_frm_train']
-        height=self.config['height']
-        width=self.config['width']
-        start_time=self.config['start_time']
-        end_time=self.config['end_time']
-        fps=self.config['fps']
-
-        try:
-            if not height or not width:
-                vr = VideoReader(video_path)
-            else:
-                vr = VideoReader(video_path, width=width, height=height)
-
-            vlen = len(vr)
-
-            if start_time or end_time:
-                assert fps > 0, 'must provide video fps if specifying start and end time.'
-
-                start_idx = min(int(start_time * fps), vlen)
-                end_idx = min(int(end_time * fps), vlen)
-            else:
-                start_idx, end_idx = 0, vlen
-
-            if frm_sampling_strategy == 'uniform':
-                frame_indices = np.arange(start_idx, end_idx, vlen / num_frm, dtype=int)
-            elif frm_sampling_strategy == 'nlvl_uniform':
-                frame_indices = np.arange(start_idx, end_idx, vlen / num_frm).astype(int)
-            elif frm_sampling_strategy == 'nlvl_rand':
-                frame_indices = np.arange(start_idx, end_idx, vlen / num_frm).astype(int)
-
-                # generate some random perturbations
-                strides = [frame_indices[i] - frame_indices[i-1] for i in range(1, len(frame_indices))] + [vlen - frame_indices[-1]]
-                pertube = np.array([np.random.randint(0, stride) for stride in strides])
-
-                frame_indices = frame_indices + pertube
-
-            elif frm_sampling_strategy == 'rand':
-                frame_indices = sorted(random.sample(range(vlen), num_frm))
-            elif frm_sampling_strategy == 'headtail':
-                frame_indices_head = sorted(random.sample(range(vlen // 2), num_frm // 2))
-                frame_indices_tail = sorted(random.sample(range(vlen // 2, vlen), num_frm // 2))
-                frame_indices = frame_indices_head + frame_indices_tail
-            elif frm_sampling_strategy == 'clip-kmeans':
-                frame_indices = self._CLIP_selection(vr, num_frm)
-            else:
-                raise NotImplementedError('Invalid sampling strategy {} '.format(frm_sampling_strategy))
-
-            raw_sample_frms = vr.get_batch(frame_indices).detach().cpu().numpy() # (num_frm, H, W, C)
-            # raw_sample_frms = vr.get_batch(frame_indices).asnumpy() # (num_frm, H, W, C)
-
-        except Exception as e:
-            print(e)
-            return None
-        # raw_sample_frms = raw_sample_frms.permute(0, 3, 1, 2) # torch tensor
-        # raw_sample_frms = np.transpose(raw_sample_frms, (0, 3, 1, 2)) # numpy
-        return raw_sample_frms
+   
