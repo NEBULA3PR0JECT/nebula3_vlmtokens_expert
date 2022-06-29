@@ -9,16 +9,14 @@ from data.utils import pre_caption_minimum, wait_for_file
 
 from collections import defaultdict
 import numpy as np
-import random
 import torch
 
 from glob import glob
-import av
-import decord
-from decord import VideoReader
-
+import ruamel.yaml as yaml
 from torchvision import transforms
-import visual_genome.local as vg
+from torchvision.transforms.functional import InterpolationMode
+
+
 
 # from transformers import CLIPProcessor, CLIPVisionModel, CLIPTokenizer, CLIPTextModel, CLIPModel, CLIPFeatureExtractor
 # from sklearn.cluster import KMeans
@@ -27,7 +25,7 @@ import copy
 
 
 class visual_genome_dataset(Dataset):
-    def __init__(self, transform, config, max_words=64):
+    def __init__(self, mod = 'blip', max_words=64):
         '''
         config:
             video_roots (list(string): list of Root directory of videos (e.g. msrvtt_ret/videos/)
@@ -41,7 +39,16 @@ class visual_genome_dataset(Dataset):
             end_time=None, 
             fps=-1
         '''
-        self.config = config
+        config = yaml.load(open('configs/pipeline_config_vg_test_nebula_toc.yaml', 'r'), Loader=yaml.Loader)
+        if mod == 'blip':
+            normalize = transforms.Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711))       
+            transform_ = transforms.Compose([
+                transforms.Resize((config['image_size'],config['image_size']),interpolation=InterpolationMode.BICUBIC),
+                transforms.ToTensor(),
+                normalize,
+                ])
+        elif mod == 'clip':
+            transform_ = transforms.Compose([])
 
         ann_jsons = config['vg_objects'] # contains videoids and its corresponding text
         image_roots = config['image_roots']
@@ -76,25 +83,14 @@ class visual_genome_dataset(Dataset):
                     #assert isinstance(obj['texts'],list)
                     self.annotation[image_id]['objects'] = obj['objects']
                     
-            # elif isinstance(ann, dict):
-            #     # assume keys are video ids
-            #     for video_id, texts in ann.items():
-            #         video_path = os.path.join(video_dir,f'{video_id}.{video_fmt}')
-            #         if not os.path.exists(video_path):
-            #             print(f'ERROR: video file not found, skipped:{video_path}')
-            #             skipped_count += 1
-            #             continue
-            #         assert isinstance(texts,list)
-            #         self.annotation[video_id] = {'video': video_path, 'caption':texts}
-        
         self.annotation = [value for key,value in self.annotation.items()]
         print('num of images skipped:', skipped_count )
         print('num of images considering:', len(self.annotation))
 
-        self.transform = transform
+        self.transform = transform_
         # add ToPILImage: to let the extracted frames from decord be able to use the training transform 
         #self.transform.transforms.insert(0, transforms.ToPILImage())
-
+        self.config = config
         self.max_words = max_words
 
     def __len__(self):
@@ -110,26 +106,26 @@ class visual_genome_dataset(Dataset):
         #image = self.transform(image)
         names = []
         croped_images = []
-        for visual_objects in ann['objects']:
+        croped_images.append(image)
+        #print("OBJECTS ", len(ann['objects']))
+        for i, visual_objects in enumerate(ann['objects']):
             h = visual_objects['h']
             w = visual_objects['w']
             y = visual_objects['y']
             x = visual_objects['x']
             x,y,w,h = self.bbox_xywh_to_xyxy((x,y,w,h))
            
-            
             crop_image = image.crop((x,y,w,h))
             width, height = crop_image.size
             if width > 30 and height > 30:
                 #print(width, height)
-                image.save(str(index) + ".jpg")
-                croped_images.append(image)
-                #crop_image.save(visual_objects['names'][0] + "_" + str(index) + ".jpg")
-                croped_images.append(crop_image)
-                names.append(visual_objects['names'])
+                image.save(str(index) + ".jpg")   
+                crop_image.save(visual_objects['names'][0] + "_" + str(index) + ".jpg")
+            croped_images.append(crop_image)
+            names.append(visual_objects['names'])
+        
         processed_frms = [self.transform(frm) for frm in croped_images]
-
-
+        processed_frms = torch.stack(processed_frms)
         return processed_frms, names
     
     def bbox_xywh_to_xyxy(self, xywh):
@@ -165,26 +161,4 @@ class visual_genome_dataset(Dataset):
             raise TypeError(
                 'Expect input xywh a list, tuple or numpy.ndarray, given {}'.format(type(xywh))) 
         
-        # ann = self.annotation[index]
-
-        # image_path = ann["video"]
-        # caption = ann["caption"]
         
-        # # try loading video
-        # for _ in range(3):
-        #     raw_sample_frms = self._load_vg_image_from_path_decord(image_path)
-        #     if raw_sample_frms is not None:
-        #         break
-        # # return None if cannot load
-        # if raw_sample_frms is None:
-        #     return None, None
-        # processed_frms = [self.transform(frm) for frm in raw_sample_frms]
-        # if not isinstance(processed_frms[0],Image.Image):
-        #     processed_frms = torch.stack(processed_frms) # [num_frm, c, h, w]
-        
-        # if 'timesformer' in self.config["vit"]:
-        #     processed_frms = processed_frms.permute(1,0,2,3)
-        
-        # return processed_frms, caption
-
-   

@@ -1,5 +1,5 @@
 ### dataset config ###
-image_roots: '/datasets/visualgenome/data/VG/'
+image_roots: '/datasets/visualgenome/data/VG/VG_10_TEST'
 #train_ann_jsons: '/datasets/msrvtt/shared_datasets/MSRVTT_caption/ann/video_2_text_original_test_caption.json'
 train_ann_jsons: 'qa_dev_ann/video_2_text_original_test_caption6.json'
 vg_objects: 'data/objects.json'
