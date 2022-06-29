@@ -119,10 +119,8 @@ class visual_genome_dataset(Dataset):
             width, height = crop_image.size
             if width > 30 and height > 30:
                 #print(width, height)
-                image.save(str(index) + ".jpg")   
-                crop_image.save(visual_objects['names'][0] + "_" + str(index) + ".jpg")
-            croped_images.append(crop_image)
-            names.append(visual_objects['names'])
+                croped_images.append(crop_image)
+                names.append(visual_objects['names'])
         
         processed_frms = [self.transform(frm) for frm in croped_images]
         processed_frms = torch.stack(processed_frms)
