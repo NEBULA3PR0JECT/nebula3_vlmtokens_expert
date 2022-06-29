@@ -107,6 +107,7 @@ class visual_genome_dataset(Dataset):
         names = []
         croped_images = []
         croped_images.append(image)
+        names.append(["full image"])
         #print("OBJECTS ", len(ann['objects']))
         for i, visual_objects in enumerate(ann['objects']):
             h = visual_objects['h']
@@ -123,7 +124,8 @@ class visual_genome_dataset(Dataset):
                 names.append(visual_objects['names'])
         
         processed_frms = [self.transform(frm) for frm in croped_images]
-        processed_frms = torch.stack(processed_frms)
+        if not isinstance(processed_frms[0],Image.Image):
+            processed_frms = torch.stack(processed_frms)
         return processed_frms, names
     
     def bbox_xywh_to_xyxy(self, xywh):
