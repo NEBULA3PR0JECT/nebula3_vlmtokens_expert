@@ -23,3 +23,7 @@ dependencies:
     - numpy
     - pymilvus==1.1.1
     - python-arango==7.2.0
+    - pycocoevalcap
+    - pycocotools
+    - av
+    - decord
