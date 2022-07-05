@@ -39,7 +39,8 @@ class visual_genome_dataset(Dataset):
             end_time=None, 
             fps=-1
         '''
-        config = yaml.load(open('configs/pipeline_config_vg_test_nebula_toc.yaml', 'r'), Loader=yaml.Loader)
+        # config = yaml.load(open('configs/pipeline_config_vg_test_nebula_toc.yaml', 'r'), Loader=yaml.Loader)
+        config = yaml.load(open('nebula3_vlmtokens_expert/vlmtokens/configs/pipeline_config_vg_test_nebula_toc.yaml', 'r'), Loader=yaml.Loader)
         if mod == 'blip':
             normalize = transforms.Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711))       
             transform_ = transforms.Compose([
@@ -64,15 +65,17 @@ class visual_genome_dataset(Dataset):
         # load annotation
         self.annotation = {}
         skipped_count = 0
+        self.ann = list()
         for i in range(len(ann_jsons)):
             #Insert database related code here
             ann = json.load(open(ann_jsons[i]))
-            image_dir = image_roots[i]
-            image_fmt = image_formats[i]
+            self.ann.append(ann)
+            self.image_dir = image_roots[i]
+            self.image_fmt = image_formats[i]
             if isinstance(ann, list):
                 for obj in ann:
                     image_id = obj['image_id']
-                    image_path = os.path.join(image_dir,f'{image_id}.{image_fmt}')
+                    image_path = os.path.join(self.image_dir,f'{image_id}.{self.image_fmt}')
                     if not os.path.exists(image_path):
                         #print(f'ERROR: image file not found, skipped:{image_path}')
                         skipped_count += 1
